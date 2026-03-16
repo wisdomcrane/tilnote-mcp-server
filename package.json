@@ -1,0 +1,36 @@
+{
+  "name": "tilnote-mcp-server",
+  "version": "0.2.0",
+  "description": "MCP server for creating, reading, and managing notes on Tilnote",
+  "type": "module",
+  "bin": {
+    "tilnote-mcp": "./build/index.js"
+  },
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js"
+  },
+  "keywords": ["tilnote", "mcp", "claude", "notes", "knowledge"],
+  "author": "Tilnote",
+  "homepage": "https://tilnote.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tilnote/tilnote-mcp-server"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "build"
+  ]
+}
