@@ -16,7 +16,7 @@
   "homepage": "https://tilnote.io",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tilnote/tilnote-mcp-server"
+    "url": "https://github.com/wisdomcrane/tilnote-mcp-server"
   },
   "license": "MIT",
   "dependencies": {
