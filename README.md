@@ -4,6 +4,8 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 
 ## Tools
 
+### Notes
+
 | Tool | Description |
 |------|-------------|
 | `create_note` | Create a new markdown note (saved as draft) |
@@ -11,6 +13,16 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 | `list_notes` | List your recent notes with excerpts |
 | `search_notes` | Search notes by keyword |
 | `update_note` | Update the title or content of an existing note |
+
+### Books
+
+| Tool | Description |
+|------|-------------|
+| `create_book` | Create a new book |
+| `list_books` | List your books with title, page count, and status |
+| `get_book` | Get book details including its list of pages |
+| `add_page_to_book` | Add an existing note to a book |
+| `remove_page_from_book` | Remove a note from a book |
 
 ## Prerequisites
 
@@ -40,7 +52,12 @@ Go to [https://tilnote.io/tilnote-api](https://tilnote.io/tilnote-api) to genera
 }
 ```
 
-#### Claude Desktop (`claude_desktop_config.json`)
+#### Claude Desktop
+
+| OS | Config file location |
+|----|---------------------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 
 ```json
 {
@@ -105,6 +122,8 @@ MIT
 
 ## 도구
 
+### 노트
+
 | 도구 | 설명 |
 |------|------|
 | `create_note` | 마크다운 노트 생성 (초안으로 저장) |
@@ -112,6 +131,16 @@ MIT
 | `list_notes` | 최근 노트 목록과 요약 조회 |
 | `search_notes` | 키워드로 노트 검색 |
 | `update_note` | 기존 노트의 제목 또는 내용 수정 |
+
+### 북(Book)
+
+| 도구 | 설명 |
+|------|------|
+| `create_book` | 새 북 생성 |
+| `list_books` | 북 목록 조회 (제목, 페이지 수, 공개 여부) |
+| `get_book` | 특정 북 상세 조회 (포함된 노트 목록 포함) |
+| `add_page_to_book` | 기존 노트를 북에 추가 |
+| `remove_page_from_book` | 북에서 노트 제거 |
 
 ## 사전 요구 사항
 
@@ -141,7 +170,12 @@ MIT
 }
 ```
 
-#### Claude Desktop (`claude_desktop_config.json`)
+#### Claude Desktop
+
+| OS | 설정 파일 위치 |
+|----|--------------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 
 ```json
 {
