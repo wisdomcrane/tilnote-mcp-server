@@ -16,7 +16,7 @@ const pageIdSchema = z
   .max(128)
   .regex(
     /^[A-Za-z0-9_-]+$/,
-    "pageId must contain only letters, numbers, underscores, or hyphens."
+    "pageId must contain only letters, numbers, underscores, or hyphens.",
   );
 
 const bookIdSchema = z
@@ -25,7 +25,7 @@ const bookIdSchema = z
   .max(128)
   .regex(
     /^[A-Za-z0-9_-]+$/,
-    "bookId must contain only letters, numbers, underscores, or hyphens."
+    "bookId must contain only letters, numbers, underscores, or hyphens.",
   );
 
 const sourceUrlSchema = z
@@ -93,7 +93,7 @@ function mapRequestFailure(error: unknown): string {
 
 async function fetchWithTimeout(
   input: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -107,14 +107,14 @@ async function fetchWithTimeout(
 if (!API_KEY) {
   console.error(
     "TILNOTE_API_KEY environment variable is required.\n" +
-      "Get your API key at https://tilnote.io/tilnote-api"
+      "Get your API key at https://tilnote.io/tilnote-api",
   );
   process.exit(1);
 }
 
 const server = new McpServer({
   name: "tilnote",
-  version: "0.2.0",
+  version: "0.2.1",
 });
 
 // ── create_note ─────────────────────────────────────────────
@@ -132,7 +132,9 @@ server.registerTool(
       content: z
         .string()
         .max(30000)
-        .describe("Markdown body content only. Do NOT include the title in content — it is set separately via the title field."),
+        .describe(
+          "Markdown body content only. Do NOT include the title in content — it is set separately via the title field.",
+        ),
       sourceUrl: z
         .union([sourceUrlSchema, z.literal("")])
         .optional()
@@ -145,14 +147,17 @@ server.registerTool(
       if (title) body.title = title;
       if (sourceUrl) body.sourceUrl = sourceUrl;
 
-      const res = await fetchWithTimeout(`${API_URL}/api/tilnote-api/v1/pages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": API_KEY!,
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/pages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": API_KEY!,
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
 
@@ -176,14 +181,15 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── get_note ─────────────────────────────────────────────────
 server.registerTool(
   "get_note",
   {
-    description: "Get the full content of a specific Tilnote note by its page ID.",
+    description:
+      "Get the full content of a specific Tilnote note by its page ID.",
     inputSchema: {
       pageId: pageIdSchema.describe("The page ID of the note to retrieve"),
     },
@@ -195,7 +201,7 @@ server.registerTool(
         `${API_URL}/api/tilnote-api/v1/pages/${encodedPageId}`,
         {
           headers: { "X-API-Key": API_KEY! },
-        }
+        },
       );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
@@ -229,17 +235,29 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── list_notes ──────────────────────────────────────────────
 server.registerTool(
   "list_notes",
   {
-    description: "List your Tilnote notes. Returns recent notes with title, excerpt, and URL.",
+    description:
+      "List your Tilnote notes. Returns recent notes with title, excerpt, and URL.",
     inputSchema: {
-      limit: z.number().int().min(1).max(50).optional().describe("Number of notes to return (default 20, max 50)"),
-      page: z.number().int().min(1).optional().describe("Page number for pagination (default 1)"),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe("Number of notes to return (default 20, max 50)"),
+      page: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("Page number for pagination (default 1)"),
     },
   },
   async ({ limit, page }) => {
@@ -248,9 +266,12 @@ server.registerTool(
       if (limit) params.set("limit", String(limit));
       if (page) params.set("page", String(page));
 
-      const res = await fetchWithTimeout(`${API_URL}/api/tilnote-api/v1/pages?${params}`, {
-        headers: { "X-API-Key": API_KEY! },
-      });
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/pages?${params}`,
+        {
+          headers: { "X-API-Key": API_KEY! },
+        },
+      );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
 
@@ -264,7 +285,9 @@ server.registerTool(
       };
       const pages = Array.isArray(data.pages) ? data.pages : [];
       if (pages.length === 0) {
-        return { content: [{ type: "text" as const, text: "No notes found." }] };
+        return {
+          content: [{ type: "text" as const, text: "No notes found." }],
+        };
       }
 
       const lines = pages.map((p, i) => {
@@ -285,17 +308,24 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── search_notes ─────────────────────────────────────────────
 server.registerTool(
   "search_notes",
   {
-    description: "Search your Tilnote notes by keyword (searches title and content).",
+    description:
+      "Search your Tilnote notes by keyword (searches title and content).",
     inputSchema: {
       q: z.string().min(1).describe("Search keyword"),
-      limit: z.number().int().min(1).max(50).optional().describe("Max results (default 20, max 50)"),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe("Max results (default 20, max 50)"),
     },
   },
   async ({ q, limit }) => {
@@ -303,9 +333,12 @@ server.registerTool(
       const params = new URLSearchParams({ q });
       if (limit) params.set("limit", String(limit));
 
-      const res = await fetchWithTimeout(`${API_URL}/api/tilnote-api/v1/pages/search?${params}`, {
-        headers: { "X-API-Key": API_KEY! },
-      });
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/pages/search?${params}`,
+        {
+          headers: { "X-API-Key": API_KEY! },
+        },
+      );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
 
@@ -319,7 +352,11 @@ server.registerTool(
       };
       const pages = Array.isArray(data.pages) ? data.pages : [];
       if (pages.length === 0) {
-        return { content: [{ type: "text" as const, text: `No notes found for "${q}".` }] };
+        return {
+          content: [
+            { type: "text" as const, text: `No notes found for "${q}".` },
+          ],
+        };
       }
 
       const lines = pages.map((p, i) => {
@@ -340,7 +377,7 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── update_note ──────────────────────────────────────────────
@@ -350,14 +387,24 @@ server.registerTool(
     description: "Update the title or content of an existing Tilnote note.",
     inputSchema: {
       pageId: pageIdSchema.describe("The page ID of the note to update"),
-      title: z.string().max(500).optional().describe("New title (max 500 chars)"),
-      content: z.string().max(100000).optional().describe("New markdown content"),
+      title: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("New title (max 500 chars)"),
+      content: z
+        .string()
+        .max(100000)
+        .optional()
+        .describe("New markdown content"),
     },
   },
   async ({ pageId, title, content }) => {
     try {
       if (title === undefined && content === undefined) {
-        return toErrorResult("Provide at least one field to update: title or content.");
+        return toErrorResult(
+          "Provide at least one field to update: title or content.",
+        );
       }
 
       const body: Record<string, string> = {};
@@ -374,7 +421,7 @@ server.registerTool(
             "X-API-Key": API_KEY!,
           },
           body: JSON.stringify(body),
-        }
+        },
       );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
@@ -383,12 +430,17 @@ server.registerTool(
       const safeUrl = sanitizeInlineText(data.url) || "(missing)";
 
       return {
-        content: [{ type: "text" as const, text: [`Note updated.`, `URL: ${safeUrl}`].join("\n") }],
+        content: [
+          {
+            type: "text" as const,
+            text: [`Note updated.`, `URL: ${safeUrl}`].join("\n"),
+          },
+        ],
       };
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── create_book ──────────────────────────────────────────────
@@ -410,14 +462,17 @@ server.registerTool(
       const body: Record<string, string> = { title };
       if (description) body.description = description;
 
-      const res = await fetchWithTimeout(`${API_URL}/api/tilnote-api/v1/books`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": API_KEY!,
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/books`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": API_KEY!,
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
 
@@ -440,7 +495,7 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── list_books ───────────────────────────────────────────────
@@ -473,7 +528,7 @@ server.registerTool(
 
       const res = await fetchWithTimeout(
         `${API_URL}/api/tilnote-api/v1/books?${params}`,
-        { headers: { "X-API-Key": API_KEY! } }
+        { headers: { "X-API-Key": API_KEY! } },
       );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
@@ -490,7 +545,9 @@ server.registerTool(
       };
       const books = Array.isArray(data.books) ? data.books : [];
       if (books.length === 0) {
-        return { content: [{ type: "text" as const, text: "No books found." }] };
+        return {
+          content: [{ type: "text" as const, text: "No books found." }],
+        };
       }
 
       const lines = books.map((b, i) => {
@@ -514,7 +571,7 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── get_book ─────────────────────────────────────────────────
@@ -532,7 +589,7 @@ server.registerTool(
       const encodedBookId = encodeURIComponent(bookId);
       const res = await fetchWithTimeout(
         `${API_URL}/api/tilnote-api/v1/books/${encodedBookId}`,
-        { headers: { "X-API-Key": API_KEY! } }
+        { headers: { "X-API-Key": API_KEY! } },
       );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
@@ -585,7 +642,7 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── add_page_to_book ─────────────────────────────────────────
@@ -610,13 +667,14 @@ server.registerTool(
             "X-API-Key": API_KEY!,
           },
           body: JSON.stringify({ pageId }),
-        }
+        },
       );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
 
       const data = (await res.json()) as { message?: string; url?: string };
-      const safeMessage = sanitizeInlineText(data.message) || "Page added to book.";
+      const safeMessage =
+        sanitizeInlineText(data.message) || "Page added to book.";
       const safeUrl = sanitizeInlineText(data.url);
 
       return {
@@ -637,7 +695,7 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── remove_page_from_book ────────────────────────────────────
@@ -659,7 +717,7 @@ server.registerTool(
         {
           method: "DELETE",
           headers: { "X-API-Key": API_KEY! },
-        }
+        },
       );
 
       if (!res.ok) return toErrorResult(mapApiError(res.status));
@@ -675,7 +733,7 @@ server.registerTool(
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
     }
-  }
+  },
 );
 
 // ── Start server ────────────────────────────────────────────
