@@ -19,6 +19,15 @@ const pageIdSchema = z
     "pageId must contain only letters, numbers, underscores, or hyphens."
   );
 
+const bookIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(
+    /^[A-Za-z0-9_-]+$/,
+    "bookId must contain only letters, numbers, underscores, or hyphens."
+  );
+
 const sourceUrlSchema = z
   .string()
   .url()
@@ -62,7 +71,7 @@ function mapApiError(status: number): string {
     case 403:
       return "Tilnote API access denied (403).";
     case 404:
-      return "Requested note was not found (404).";
+      return "Requested resource was not found (404).";
     case 429:
       return "Tilnote API rate limit exceeded (429). Try again later.";
     case 500:
@@ -375,6 +384,293 @@ server.registerTool(
 
       return {
         content: [{ type: "text" as const, text: [`Note updated.`, `URL: ${safeUrl}`].join("\n") }],
+      };
+    } catch (e: unknown) {
+      return toErrorResult(mapRequestFailure(e));
+    }
+  }
+);
+
+// ── create_book ──────────────────────────────────────────────
+server.registerTool(
+  "create_book",
+  {
+    description: "Create a new book on Tilnote. Returns the book ID and URL.",
+    inputSchema: {
+      title: z.string().min(1).max(500).describe("Book title (max 500 chars)"),
+      description: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("Short description of the book (max 500 chars)"),
+    },
+  },
+  async ({ title, description }) => {
+    try {
+      const body: Record<string, string> = { title };
+      if (description) body.description = description;
+
+      const res = await fetchWithTimeout(`${API_URL}/api/tilnote-api/v1/books`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY!,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) return toErrorResult(mapApiError(res.status));
+
+      const data = (await res.json()) as { bookId: string; url?: string };
+      const safeBookId = sanitizeInlineText(data.bookId);
+      const safeUrl = sanitizeInlineText(data.url);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: [
+              "Book created successfully.",
+              `Book ID: ${safeBookId || "(unknown)"}`,
+              `URL: ${safeUrl || "(missing)"}`,
+            ].join("\n"),
+          },
+        ],
+      };
+    } catch (e: unknown) {
+      return toErrorResult(mapRequestFailure(e));
+    }
+  }
+);
+
+// ── list_books ───────────────────────────────────────────────
+server.registerTool(
+  "list_books",
+  {
+    description:
+      "List your Tilnote books. Returns title, page count, and URL for each book.",
+    inputSchema: {
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe("Number of books to return (default 20, max 50)"),
+      page: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("Page number for pagination (default 1)"),
+    },
+  },
+  async ({ limit, page }) => {
+    try {
+      const params = new URLSearchParams();
+      if (limit) params.set("limit", String(limit));
+      if (page) params.set("page", String(page));
+
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/books?${params}`,
+        { headers: { "X-API-Key": API_KEY! } }
+      );
+
+      if (!res.ok) return toErrorResult(mapApiError(res.status));
+
+      const data = (await res.json()) as {
+        books?: Array<{
+          bookId?: string;
+          title?: string;
+          description?: string;
+          pageCount?: number;
+          publish?: boolean;
+          url?: string;
+        }>;
+      };
+      const books = Array.isArray(data.books) ? data.books : [];
+      if (books.length === 0) {
+        return { content: [{ type: "text" as const, text: "No books found." }] };
+      }
+
+      const lines = books.map((b, i) => {
+        const safeId = sanitizeInlineText(b.bookId) || "(unknown)";
+        const safeTitle = sanitizeInlineText(b.title) || "(Untitled)";
+        const safeDesc = buildExcerpt(b.description, 80);
+        const safeUrl = sanitizeInlineText(b.url) || "(missing)";
+        const pageCount = typeof b.pageCount === "number" ? b.pageCount : 0;
+        const status = b.publish ? "published" : "draft";
+        return `${i + 1}. [${safeId}] ${safeTitle} — ${pageCount} pages (${status})\n   ${safeDesc}\n   ${safeUrl}`;
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: [UNTRUSTED_DATA_NOTICE, "", lines.join("\n\n")].join("\n"),
+          },
+        ],
+      };
+    } catch (e: unknown) {
+      return toErrorResult(mapRequestFailure(e));
+    }
+  }
+);
+
+// ── get_book ─────────────────────────────────────────────────
+server.registerTool(
+  "get_book",
+  {
+    description:
+      "Get details of a specific Tilnote book including its list of pages.",
+    inputSchema: {
+      bookId: bookIdSchema.describe("The book ID to retrieve"),
+    },
+  },
+  async ({ bookId }) => {
+    try {
+      const encodedBookId = encodeURIComponent(bookId);
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/books/${encodedBookId}`,
+        { headers: { "X-API-Key": API_KEY! } }
+      );
+
+      if (!res.ok) return toErrorResult(mapApiError(res.status));
+
+      const data = (await res.json()) as {
+        bookId?: string;
+        title?: string;
+        description?: string;
+        publish?: boolean;
+        pageCount?: number;
+        pages?: Array<{ pageId?: string; title?: string }>;
+        url?: string;
+      };
+
+      const safeTitle = sanitizeInlineText(data.title) || "(Untitled)";
+      const safeBookId = sanitizeInlineText(data.bookId) || "(unknown)";
+      const safeUrl = sanitizeInlineText(data.url) || "(missing)";
+      const pageCount = typeof data.pageCount === "number" ? data.pageCount : 0;
+      const status = data.publish ? "published" : "draft";
+      const pages = Array.isArray(data.pages) ? data.pages : [];
+
+      const pageLines =
+        pages.length === 0
+          ? "  (no pages)"
+          : pages
+              .map((p, i) => {
+                const pid = sanitizeInlineText(p.pageId) || "(unknown)";
+                const pt = sanitizeInlineText(p.title) || "(Untitled)";
+                return `  ${i + 1}. [${pid}] ${pt}`;
+              })
+              .join("\n");
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: [
+              UNTRUSTED_DATA_NOTICE,
+              `# ${safeTitle}`,
+              `Book ID: ${safeBookId}`,
+              `Status: ${status} | Pages: ${pageCount}`,
+              `URL: ${safeUrl}`,
+              "",
+              "Pages:",
+              pageLines,
+            ].join("\n"),
+          },
+        ],
+      };
+    } catch (e: unknown) {
+      return toErrorResult(mapRequestFailure(e));
+    }
+  }
+);
+
+// ── add_page_to_book ─────────────────────────────────────────
+server.registerTool(
+  "add_page_to_book",
+  {
+    description: "Add an existing note (page) to a Tilnote book.",
+    inputSchema: {
+      bookId: bookIdSchema.describe("The book ID to add the page to"),
+      pageId: pageIdSchema.describe("The page ID of the note to add"),
+    },
+  },
+  async ({ bookId, pageId }) => {
+    try {
+      const encodedBookId = encodeURIComponent(bookId);
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/books/${encodedBookId}/pages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": API_KEY!,
+          },
+          body: JSON.stringify({ pageId }),
+        }
+      );
+
+      if (!res.ok) return toErrorResult(mapApiError(res.status));
+
+      const data = (await res.json()) as { message?: string; url?: string };
+      const safeMessage = sanitizeInlineText(data.message) || "Page added to book.";
+      const safeUrl = sanitizeInlineText(data.url);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: [
+              safeMessage,
+              `Book ID: ${sanitizeInlineText(bookId)}`,
+              `Page ID: ${sanitizeInlineText(pageId)}`,
+              safeUrl ? `Book URL: ${safeUrl}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          },
+        ],
+      };
+    } catch (e: unknown) {
+      return toErrorResult(mapRequestFailure(e));
+    }
+  }
+);
+
+// ── remove_page_from_book ────────────────────────────────────
+server.registerTool(
+  "remove_page_from_book",
+  {
+    description: "Remove a note (page) from a Tilnote book.",
+    inputSchema: {
+      bookId: bookIdSchema.describe("The book ID to remove the page from"),
+      pageId: pageIdSchema.describe("The page ID of the note to remove"),
+    },
+  },
+  async ({ bookId, pageId }) => {
+    try {
+      const encodedBookId = encodeURIComponent(bookId);
+      const encodedPageId = encodeURIComponent(pageId);
+      const res = await fetchWithTimeout(
+        `${API_URL}/api/tilnote-api/v1/books/${encodedBookId}/pages/${encodedPageId}`,
+        {
+          method: "DELETE",
+          headers: { "X-API-Key": API_KEY! },
+        }
+      );
+
+      if (!res.ok) return toErrorResult(mapApiError(res.status));
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: "Page removed from book.",
+          },
+        ],
       };
     } catch (e: unknown) {
       return toErrorResult(mapRequestFailure(e));
